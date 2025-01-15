@@ -1,0 +1,31 @@
+import pandas as pd
+input_file = 'data.csv'
+opim_data = pd.read_csv(input_file)
+
+corporate_action_columns = ['Ticker', 'Dvd Declared Dt', 'Dvd Ex Dt', 'Dvd Record Dt', 'Dvd Pay Dt', 'DPS Last', 'Dvd Freq', 'Dvd Typ', 'Curncy', 'Ticker']
+corporate_action_data = opim_data[corporate_action_columns]
+corporate_action_rename_map = {'Dvd Declared Dt': 'Declared Date', 
+                               'Dvd Ex Dt': 'Ex-Date',
+                               'Dvd Record Dt': 'Record Date', 
+                               'Dvd Pay Dt': 'Payable Date', 
+                               'DPS Last': 'Dividend Amount', 
+                               'Dvd Freq': 'Dividend Frequency', 
+                               'Dvd Typ': 'Dividend Type', 
+                               'Curncy': 'Currency',
+                               'Ticker': 'Related BBG Ticker'}
+corporate_action_data = corporate_action_data.rename(columns=corporate_action_rename_map)
+corporate_action_data.insert(0, 'Asset Class', 'SWAP')
+corporate_action_data.columns.values[1] ='Ticker'
+corporate_action_data.to_csv("corporate_action_output.csv", index=False)
+
+manual_price_upload_columns = ['Ticker', 'Curncy', 'Price:D-1', 'Average Volume:D-20', 'Curr Shares Out']
+manual_price_upload_data = opim_data[manual_price_upload_columns]
+manual_price_upload_rename_map = {'Ticker': 'BBG_TICKER', 
+                                  'Curncy': 'CURRENCY',
+                                  'Price:D-1': 'PRICE',
+                                  'Average Volume:D-20': '20_DAYS_AVG_VOL',
+                                  'Curr Shares Out': 'EQY_SH_OUT',}
+manual_price_upload_data = manual_price_upload_data.rename(columns=manual_price_upload_rename_map)
+manual_price_upload_data.insert(1, 'ASSET_CLASS', 'SWAP')
+manual_price_upload_data.insert(4, 'MULTIPLIER', '1')
+manual_price_upload_data.to_csv("manual_price_output.csv", index=False)
