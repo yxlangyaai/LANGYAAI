@@ -1,0 +1,30 @@
+import pandas as pd
+files = {
+    'November': 'sedol_separation_2nov2022.xlsx',
+    'December': 'sedol_separation_2dec2022.xlsx'
+}
+year = "2022" 
+all_good_results = []
+for month, file in files.items():
+    # Read the "Good Results" sheet
+    data = pd.read_excel(file, sheet_name='Good Results')
+    data['Month'] = f"{month}_{year}"  # Add month column
+    all_good_results.append(data)
+combined_good_results = pd.concat(all_good_results, ignore_index=True)
+combined_good_results['Inclusion'] = 1
+summary_table = combined_good_results.pivot_table(
+    index='Symbol',
+    columns='Month',
+    values='Inclusion',
+    fill_value=0,
+    aggfunc='max'
+)
+# Sort columns in ascending order of month_year
+def extract_date_key(column_name):
+    month, year = column_name.split("_")
+    return pd.to_datetime(f"{month} {year}", format="%B %Y")
+
+sorted_columns = sorted(summary_table.columns, key=extract_date_key)
+summary_table = summary_table[sorted_columns]
+summary_table.reset_index(inplace=True)
+summary_table.to_csv("summary_table2_2022.csv", index=False)
