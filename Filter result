@@ -1,0 +1,57 @@
+import pandas as pd
+import os
+from datetime import datetime
+# Define the folder path
+folder_path = 'output2024_csv'
+
+# Step 1: Detect relevant files based on the input month
+target_year_month = datetime.strptime('202401', "%Y%m")
+file_list = [
+    os.path.join(folder_path, file)
+    for file in os.listdir(folder_path)
+    if file.startswith('opinv_avail_202401') and target_year_month.strftime("%Y%m") in file
+]
+
+if not file_list:
+    raise FileNotFoundError(f"No files found for the specified month: {'202401'}")
+# Step 2: Load and combine data from detected files
+combined_data = pd.concat([pd.read_csv(file) for file in file_list])
+combined_data['Symbol'] = combined_data['Symbol'].str.strip()  # Clean up symbol formatting
+# Step 3: Calculate availability for each stock
+total_days = len(file_list)  # Total days is the number of files detected
+
+availability_summary = combined_data.groupby('Symbol').agg(
+    available_days=('Available Amount', lambda x: (x > 0).sum()),
+    average_borrowing_rate=('Rate', 'mean')  # Mean borrowing rate
+).reset_index()
+# Calculate average availability using total_days
+availability_summary['total_days'] = total_days
+availability_summary['average_availability'] = (availability_summary['available_days'] / 
+                                                availability_summary['total_days']) * 100
+# Step 4: Add back the Sedol column
+sedol_mapping = combined_data[['Symbol', 'Sedol', 'Isin']].drop_duplicates().set_index('Symbol')
+availability_summary = availability_summary.join(sedol_mapping, on='Symbol')
+availability_threshold = 80
+filtered_by_availability = availability_summary[
+    availability_summary['average_availability'] >= availability_threshold
+]
+borrowing_cost_threshold = 6.0
+filtered_universe = filtered_by_availability[
+    filtered_by_availability['average_borrowing_rate'] <= borrowing_cost_threshold
+]
+filtered_universe = filtered_universe.sort_values(by='average_availability', ascending=False)
+filtered_universe = filtered_universe.reset_index(drop=True)
+filtered_universe['Rank'] = filtered_universe.index + 1
+filtered_universe = filtered_universe[['Symbol', 'Sedol', 'Isin', 'total_days', 'available_days', 
+                                       'average_availability', 'average_borrowing_rate']]
+filtered_universe.to_csv("filtered_results_2jan2024.csv", index=False)
+LT = pd.read_csv('LT.csv')
+filtered = pd.read_csv('filtered_results_2jan2024.csv')
+merged_sedol = pd.merge(LT,filtered,on ='Sedol',how ='inner') 
+merged_sedol.to_csv("sedol_lookup_2jan2024.csv", index=False)
+blank_sedol = merged_sedol[merged_sedol['Sedol'].isnull() | (merged_sedol['Sedol'] == '')]
+good_results = merged_sedol[~(merged_sedol['Sedol'].isnull() | (merged_sedol['Sedol'] == ''))]
+output_file = "sedol_separation_2jan2024.xlsx"
+with pd.ExcelWriter(output_file) as writer:
+    good_results.to_excel(writer, sheet_name='Good Results', index=False)
+    blank_sedol.to_excel(writer, sheet_name='Blank SEDOL', index=False)
